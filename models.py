@@ -1,7 +1,8 @@
-from sqlalchemy import BigInteger, String, Boolean
+from sqlalchemy import BigInteger, String, Boolean, Date
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 
+from datetime import date
 from config import SQLALCHEMY_URL
 
 engine = create_async_engine(SQLALCHEMY_URL, echo=True)
@@ -19,8 +20,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)  # имя
     surname: Mapped[str] = mapped_column(String,nullable=True)  # фамилия
     username: Mapped[str] = mapped_column(String,nullable=True)  # никнейм
-    start_date: Mapped[str] = mapped_column(String,nullable=True)  # дата с какого
-    end_date: Mapped[str] = mapped_column(String,nullable=True)  # дата по какое
+    start_date: Mapped[date] = mapped_column(Date,nullable=True)  # дата с какого
+    end_date: Mapped[date] = mapped_column(Date,nullable=True)  # дата по какое
     is_admin: Mapped[bool] = mapped_column(Boolean,nullable=True)  # админ
     condition: Mapped[str] = mapped_column(String,nullable=True)  # состояние(болен, отпуск итд)
     description: Mapped[str] = mapped_column(String,nullable=True)  # обьяснение причины отсутствия

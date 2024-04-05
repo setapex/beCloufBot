@@ -28,6 +28,16 @@ class User(Base):
     vote: Mapped[str] = mapped_column(String,nullable=True) # голоса в опросе
 
 
+class Result(Base):
+    __tablename__ = 'results'
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    yes_votes: Mapped[str] = mapped_column(String,nullable=True)
+    sick_votes: Mapped[str] = mapped_column(String,nullable=True)
+    vacation_votes: Mapped[str] = mapped_column(String,nullable=True)
+    ignore: Mapped[str] = mapped_column(String,nullable=True)
+    date_votes: Mapped[date] = mapped_column(Date)
+
+
 async def async_main():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

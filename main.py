@@ -35,6 +35,7 @@ async def check_status():
     for user in users:
         if user.end_date == date.today():
             await update_status(user.id, 'active')
+            await zero_dates(user.id)
 
 
 @dp.message_handler(commands=['send'])
@@ -94,29 +95,37 @@ async def handle_reason_selection(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id,
                                f"Вы выбрали причину: {reason_mapping.get(callback_query.data)}")
         await update_start_date(callback_query.from_user.id)
-        await bot.send_message(callback_query.from_user.id, 'Отправьте дату в формате ГГГГ-ММ-ДД')
+        await bot.send_message(callback_query.from_user.id, 'Отправьте дату в формате ДД.ММ.ГГГГ или ДД/ММ/ГГГГ')
 
         @dp.message_handler(lambda message: message.from_user.id == callback_query.from_user.id)
         async def handle_date(message: types.Message):
             try:
                 await process_date(callback_query.from_user.id, message.text)
             except Exception as e:
-                await message.answer(f"Вы ввели неверный формат даты {e}")
+                await message.answer(f"Вы ввели неверный формат даты")
     except Exception as e:
         print(f'Ошибка {e}')
 
 
 async def process_date(user_id, date_text):
-    end_date = date.fromisoformat(date_text)
+    delimiter = '.'
+    if '.' in date_text:
+        delimiter = "."
+    elif '/' in date_text:
+        delimiter = "/"
+    string = date_text.replace("/" if delimiter == "." else ".", delimiter)
+    parts = string.split(delimiter)
+    format_string = "-".join([parts[2], parts[1], parts[0]])
+    end_date = date.fromisoformat(format_string)
     await update_end_date(user_id, end_date)
     await bot.send_message(user_id, f"Вы отправили дату: {end_date}")
     user = await compare_users_id(user_id)
 
     admins = await get_admins()
     for admin in admins:
-        await bot.send_message(admin.id,f"Пользователь {user.name} {user.surname} @{user.username}"
-                                           f" будет отсутствовать до {user.end_date}"
-                                           f" по причине {user.condition}")
+        await bot.send_message(admin.id, f"Пользователь {user.name} {user.surname} @{user.username}"
+                                         f" будет отсутствовать до {user.end_date}"
+                                         f" по причине {user.condition}")
 
 
 @dp.message_handler(commands=['res'])
@@ -124,26 +133,54 @@ async def handle_results_command(message: types.Message):
     admin_user = await compare_users_id(message.from_user.id)
     if admin_user.is_admin:
         users = await get_users()
-        voted_yes = []
-        voted_sick = []
-        voted_vacation = []
-        not_voted = []
-        for user in users:
-            if user.vote == 'Yes':
-                voted_yes.append("{} {} @{}".format(user.name, user.surname, user.username))
-            elif user.condition == 'Болею':
-                voted_sick.append("{} {} @{} до {}".format(user.name, user.surname, user.username, user.end_date))
-            elif user.condition == 'Отпуск':
-                voted_vacation.append("{} {} @{} до {}".format(user.name, user.surname, user.username, user.end_date))
-            else:
-                not_voted.append("{} {} @{}".format(user.name, user.surname, user.username))
+        yes_votes = ""
+        sick_votes = ""
+        vacation_votes = ""
+        ignore_votes = ""
 
-        output = "Да\n{}\n\nБолеет\n{}\n\nВ отпуске\n{}\n\nНе проголосовали\n{}".format(
-            "\n".join(voted_yes) if voted_yes else "Никто",
-            "\n".join(voted_sick) if voted_sick else "Никто",
-            "\n".join(voted_vacation) if voted_vacation else "Никто",
-            "\n".join(not_voted) if not_voted else "Никто")
-        await message.answer(output)
+        for user in users:
+            if user.vote == 'Yes' and user.condition == 'active':
+                yes_votes += "{} {} @{}; \n".format(user.name, user.surname, user.username)
+            elif user.condition == 'Болею':
+                sick_votes += "{} {} @{} до {}; \n".format(user.name, user.surname, user.username, user.end_date)
+            elif user.condition == 'Отпуск':
+                vacation_votes += "{} {} @{} до {}; \n".format(user.name, user.surname, user.username,
+                                                               user.end_date)
+            elif not user.vote and user.condition == 'active':
+                ignore_votes += "{} {} @{}; \n".format(user.name, user.surname, user.username)
+
+        if not yes_votes:
+            yes_votes = 'Никто'
+        if not sick_votes:
+            sick_votes = 'Никто'
+        if not vacation_votes:
+            vacation_votes = 'Никто'
+        if not ignore_votes:
+            ignore_votes = 'Никто'
+
+        output = f"Да\n{yes_votes}\n\nБолеет\n{sick_votes}\n\nВ отпуске\n{vacation_votes}\n\nНе проголосовали\n{ignore_votes}".strip()
+
+        yes_votes = yes_votes.replace('\n', '')
+        sick_votes = sick_votes.replace('\n', '')
+        vacation_votes = vacation_votes.replace('\n', '')
+        ignore_votes = ignore_votes.replace('\n', '')
+
+        await set_results(yes_votes, sick_votes, vacation_votes, ignore_votes)
+
+        await message.answer(output if output else "Никто")
+    else:
+        await message.answer("У Вас нет доступа к этой команде")
+
+
+@dp.message_handler(commands=['result'])
+async def get_res(message: types.Message):
+    admin_user = await compare_users_id(message.from_user.id)
+    if admin_user.is_admin:
+        users = await get_users()
+        for user in users:
+            if user.vote == "Yes":
+                pass
+
     else:
         await message.answer("У Вас нет доступа к этой команде")
 

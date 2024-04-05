@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy import select, insert, update
 
-from models import User, async_session
+from models import User, async_session, Result
 
 
 async def get_users():
@@ -66,4 +66,17 @@ async def update_start_date(id: int):
 async def update_end_date(id: int, date: date):
     async with async_session() as session:
         await session.execute(update(User).where(User.id == id).values(end_date=date))
+        await session.commit()
+
+
+async def zero_dates(id: int, ):
+    async with async_session() as session:
+        await session.execute(update(User).where(User.id == id).values(end_date=None, start_date=None))
+        await session.commit()
+
+
+async def set_results(yes: str, sick: str, vacation: str, ignore: str):
+    async with async_session() as session:
+        await session.execute(insert(Result).values(yes_votes=yes, sick_votes=sick
+                                                    , vacation_votes=vacation, ignore=ignore, date_votes=date.today()))
         await session.commit()
